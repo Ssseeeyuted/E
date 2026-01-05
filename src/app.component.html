@@ -1,0 +1,344 @@
+<div class="relative w-full h-full bg-black text-white font-mono overflow-hidden">
+  
+  <div #renderContainer class="absolute top-0 left-0 w-full h-full z-0 pointer-events-auto"></div>
+
+  <!-- 理智與狀態視覺效果 -->
+  <div class="absolute inset-0 pointer-events-none z-10 transition-opacity duration-1000" 
+       [style.opacity]="(100 - sanity()) / 100">
+       <div class="absolute inset-0 vignette mix-blend-multiply"></div>
+       <div class="absolute inset-0 bg-red-900/10 mix-blend-overlay"></div>
+       <div class="absolute inset-0 scanlines opacity-50"></div>
+  </div>
+  
+  <!-- 流血特效 -->
+  @if (statusEffects().includes('BLEEDING')) {
+      <div class="absolute inset-0 pointer-events-none z-10 box-border border-[20px] border-red-900/50 animate-pulse blur-sm"></div>
+  }
+
+  <!-- 躲藏介面 -->
+  @if (gameState() === 'HIDING') {
+      <div class="absolute inset-0 z-15 bg-black pointer-events-none">
+          <div class="absolute top-0 left-0 w-full h-[35%] bg-black border-b border-gray-900"></div>
+          <div class="absolute bottom-0 left-0 w-full h-[35%] bg-black border-t border-gray-900"></div>
+          <div class="absolute top-0 left-0 w-[15%] h-full bg-black border-r border-gray-900"></div>
+          <div class="absolute top-0 right-0 w-[15%] h-full bg-black border-l border-gray-900"></div>
+          <div class="absolute bottom-20 w-full text-center text-gray-500 animate-pulse">
+              [ 隱匿中... {{ isMobile() ? '按右上角按鈕離開' : '按 E 離開' }} ]
+          </div>
+          
+          <!-- 手機版離開躲藏按鈕 -->
+          @if (isMobile()) {
+              <div class="absolute top-4 right-4 pointer-events-auto">
+                  <button (click)="exitHiding()" class="w-16 h-16 rounded-full bg-red-900/80 border border-red-500 text-white flex items-center justify-center shadow-lg">
+                      EXIT
+                  </button>
+              </div>
+          }
+      </div>
+  }
+
+  <!-- 手機版虛擬控制器 HUD (僅在 PLAYING 狀態顯示) -->
+  @if (isMobile() && gameState() === 'PLAYING') {
+      <div class="absolute inset-0 z-30 pointer-events-none">
+          
+          <!-- 暫停按鈕 (右上) -->
+          <div class="absolute top-4 right-4 pointer-events-auto">
+              <button (click)="mobileAction('pause')" class="w-10 h-10 rounded-full bg-gray-800/80 border border-gray-500 text-white flex items-center justify-center">
+                  ||
+              </button>
+          </div>
+
+          <!-- 虛擬搖桿 (左下) -->
+          <div class="absolute bottom-16 left-16 w-32 h-32 rounded-full border-2 border-white/20 bg-black/20 pointer-events-none">
+              <div class="absolute w-12 h-12 rounded-full bg-white/50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
+                   [style.transform]="'translate(-50%, -50%) translate(' + joystickData().dx + 'px, ' + joystickData().dy + 'px)'">
+              </div>
+          </div>
+          
+          <!-- 動作按鈕群 (右下) -->
+          <div class="absolute bottom-12 right-8 flex flex-col items-end gap-4 pointer-events-auto">
+              
+              <div class="flex gap-4 items-end">
+                   <!-- 蹲下 (Crouch) -->
+                   <button (click)="mobileAction('crouch')" 
+                           class="w-14 h-14 rounded-full border border-gray-400 flex items-center justify-center text-xs backdrop-blur-sm transition-all active:scale-95"
+                           [class.bg-green-800]="isCrouching" [class.bg-black]="!isCrouching">
+                       蹲
+                   </button>
+                   
+                   <!-- 互動 (Interact) - 只有當有互動目標時高亮 -->
+                   <button (click)="mobileAction('interact')" 
+                           class="w-20 h-20 rounded-full border-2 flex items-center justify-center text-sm font-bold backdrop-blur-sm transition-all active:scale-95 shadow-lg"
+                           [class.border-red-500]="showInteract()" [class.bg-red-900]="showInteract()" 
+                           [class.border-gray-600]="!showInteract()" [class.bg-black]="!showInteract()" [class.opacity-50]="!showInteract()">
+                       互動
+                   </button>
+              </div>
+
+              <div class="flex gap-4">
+                  <!-- 手電筒 (Flashlight) -->
+                  <button (click)="mobileAction('flashlight')" 
+                          class="w-12 h-12 rounded-full border border-yellow-600 bg-black/50 text-yellow-500 flex items-center justify-center text-xs backdrop-blur-sm active:scale-95">
+                      光
+                  </button>
+                  
+                  <!-- 奔跑 (Run) -->
+                  <button (click)="mobileAction('run')" 
+                          class="w-12 h-12 rounded-full border border-blue-600 flex items-center justify-center text-xs backdrop-blur-sm active:scale-95"
+                          [class.bg-blue-900]="isRunning" [class.bg-black]="!isRunning">
+                      跑
+                  </button>
+              </div>
+          </div>
+          
+          <!-- 互動文字提示 (螢幕中央上方) -->
+          @if (showInteract()) {
+              <div class="absolute top-1/3 left-1/2 -translate-x-1/2 text-center pointer-events-none">
+                   <div class="bg-black/80 text-white px-4 py-2 border border-red-500 rounded backdrop-blur-sm text-sm animate-bounce">
+                       {{ interactText() }}
+                   </div>
+              </div>
+          }
+      </div>
+  }
+
+  <!-- HUD (桌面版 & 通用) -->
+  @if (gameState() === 'PLAYING' || gameState() === 'ELEVATOR_RIDE' || gameState() === 'HIDING') {
+    <div class="absolute inset-0 pointer-events-none z-20">
+      
+      <!-- 桌面版準星 -->
+      @if (gameState() !== 'HIDING' && !isMobile()) {
+        <div class="absolute top-1/2 left-1/2 w-1 h-1 bg-white/50 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all"
+             [class.w-4]="showInteract()" [class.h-4]="showInteract()" [class.bg-red-500]="showInteract()"></div>
+      }
+      
+      <!-- 桌面版互動提示 -->
+      @if (showInteract() && gameState() !== 'HIDING' && !isMobile()) {
+        <div class="absolute top-[55%] left-1/2 -translate-x-1/2 text-sm bg-black/80 text-white px-4 py-2 border border-red-500 rounded backdrop-blur-sm">
+          [E] {{ interactText() }}
+        </div>
+      }
+
+      <!-- 狀態欄 -->
+      <div class="absolute bottom-6 left-6 flex flex-col gap-3 w-64 p-4 bg-black/60 backdrop-blur-md border border-gray-800 rounded shadow-lg"
+           [class.opacity-50]="isMobile()" [class.scale-75]="isMobile()" [class.origin-bottom-left]="isMobile()">
+        <!-- 生命 -->
+        <div>
+           <div class="flex justify-between text-xs text-red-300 mb-1">
+               <span>生命值</span>
+               <span>{{ health() | number:'1.0-0' }}%</span>
+           </div>
+           <div class="w-full h-1.5 bg-red-950">
+               <div class="h-full bg-red-600 transition-all" [style.width.%]="health()"></div>
+           </div>
+        </div>
+        <!-- 體力 -->
+        <div>
+           <div class="flex justify-between text-xs text-gray-400 mb-1">
+               <span>體力</span>
+               <span>{{ stamina() | number:'1.0-0' }}%</span>
+           </div>
+           <div class="w-full h-1.5 bg-gray-900">
+               <div class="h-full bg-white transition-all" [style.width.%]="stamina()"></div>
+           </div>
+        </div>
+        <!-- 理智 -->
+        <div>
+           <div class="flex justify-between text-xs text-purple-400 mb-1">
+               <span>理智 (SAN)</span>
+               <span [class.animate-pulse]="sanity() < 30">{{ sanity() | number:'1.0-0' }}%</span>
+           </div>
+           <div class="w-full h-1.5 bg-purple-950">
+               <div class="h-full bg-purple-500 transition-all" [style.width.%]="sanity()"></div>
+           </div>
+        </div>
+        <!-- 電力 -->
+        <div>
+           <div class="flex justify-between text-xs text-yellow-400 mb-1">
+               <span>電力</span>
+               <span>{{ battery() | number:'1.0-0' }}%</span>
+           </div>
+           <div class="w-full h-1.5 bg-yellow-900">
+               <div class="h-full bg-yellow-400 transition-all" [style.width.%]="battery()"></div>
+           </div>
+        </div>
+        
+        <!-- 負面狀態 -->
+        @if (statusEffects().length > 0) {
+            <div class="flex flex-wrap gap-2 mt-2">
+                @for (effect of statusEffects(); track effect) {
+                    <span class="text-xs bg-red-900 text-white px-2 py-1 rounded animate-pulse">{{ effect === 'BLEEDING' ? '流血中' : effect }}</span>
+                }
+            </div>
+        }
+      </div>
+
+      <!-- 物品欄 -->
+      <div class="absolute bottom-6 right-6 flex gap-2" [class.hidden]="isMobile()">
+          @for (item of inventory(); track $index) {
+              <div class="w-12 h-12 bg-gray-900 border border-gray-600 flex items-center justify-center text-xs shadow-lg"
+                   [title]="item">
+                  @switch (item) {
+                      @case ('KEY') { 🔑 }
+                      @case ('BATTERY') { 🔋 }
+                      @default { ? }
+                  }
+              </div>
+          }
+      </div>
+
+      <!-- 任務目標 (手機版移到左上角避免遮擋) -->
+      <div class="absolute text-right" [class.top-6]="!isMobile()" [class.right-6]="!isMobile()" [class.top-4]="isMobile()" [class.left-4]="isMobile()" [class.text-left]="isMobile()">
+        <div class="text-3xl font-bold tracking-widest text-red-700 glitch-text drop-shadow-md">B{{ floor() }}</div>
+        <div class="text-sm text-gray-500 mt-1">已解謎題: {{ puzzlesSolved() }} / 10</div>
+      </div>
+      
+      <!-- 獨白字幕 -->
+      @if (currentMonologue()) {
+        <div class="absolute w-full text-center" [class.bottom-40]="!isMobile()" [class.top-20]="isMobile()">
+            <span class="bg-black/90 text-gray-300 italic px-8 py-3 text-lg border-y border-red-900 shadow-lg block max-w-sm mx-auto">
+                " {{ currentMonologue() }} "
+            </span>
+        </div>
+      }
+      
+      <!-- 通知 -->
+      <div class="absolute top-24 right-6 flex flex-col gap-2 items-end pointer-events-none">
+        @for (msg of notifications(); track msg) {
+          <div class="bg-black/80 border-r-4 border-white px-4 py-2 text-sm animate-bounce text-gray-300 shadow-md">
+            {{ msg }}
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- 閱讀介面 -->
+  @if (gameState() === 'READING') {
+      <div class="absolute inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+          <div class="bg-[#dcd0b0] text-black p-8 max-w-lg w-full shadow-[0_0_50px_rgba(255,255,255,0.1)] rotate-1 border-4 border-[#c0b090]">
+              <div class="mb-4 text-xs text-gray-600 border-b border-gray-400 pb-2">ARCHIVE_RECORD</div>
+              <p class="whitespace-pre-wrap text-lg font-serif leading-relaxed mb-8">{{ currentNote() }}</p>
+              
+              <div class="text-center text-sm border-t border-black/20 pt-4 font-bold">
+                  @if (isMobile()) {
+                      <button (click)="gameState.set('PLAYING'); safeLock()" class="px-4 py-2 bg-black text-white rounded">關閉</button>
+                  } @else {
+                      [E] 關閉
+                  }
+              </div>
+          </div>
+      </div>
+  }
+
+  <!-- 謎題介面 -->
+  @if (gameState() === 'PUZZLE') {
+    <div class="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-8 font-mono text-green-500">
+      <div class="border-2 border-green-800 p-8 max-w-md w-full bg-black shadow-[0_0_20px_rgba(0,255,0,0.2)]">
+        <h2 class="text-xl mb-6 border-b border-green-900 pb-2 text-center">BLACKBOARD TEST_V1</h2>
+        <div class="mb-4">
+             <p class="text-xl mb-2 text-white font-bold">{{ currentPuzzle().q_disp || currentPuzzle().q }}</p>
+             <p class="text-sm text-gray-500 italic">提示: {{ currentPuzzle().hint }}</p>
+        </div>
+        
+        <input type="text" 
+               [value]="puzzleInput()" 
+               (input)="puzzleInput.set($any($event.target).value)"
+               (keyup.enter)="submitPuzzle(puzzleInput())"
+               class="w-full bg-gray-900 border border-green-700 p-3 text-center text-xl text-green-400 focus:outline-none mb-6 placeholder-green-900"
+               placeholder="輸入答案..." autofocus />
+        
+        <div class="flex justify-between items-center">
+            <button (click)="closePuzzle()" class="text-gray-500 hover:text-white transition-colors">[ 放棄 ]</button>
+            <button (click)="submitPuzzle(puzzleInput())" class="bg-green-900 text-white px-6 py-2 hover:bg-green-800 transition-colors border border-green-700">[ 提交 ]</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- 駭客介面 -->
+  @if (gameState() === 'HACKING') {
+    <div class="absolute inset-0 z-50 bg-black flex items-center justify-center font-mono text-green-500 overflow-y-auto">
+       <div class="w-full max-w-2xl border border-green-800 bg-[#050505] p-8 shadow-[0_0_50px_rgba(0,100,0,0.2)] my-auto">
+           <div class="flex justify-between border-b border-green-900 pb-2 mb-4">
+               <span>ROOT@SCHOOL_SERVER:~$ sudo hack_elevator.exe</span>
+               <span class="animate-pulse text-red-500">LOCKED</span>
+           </div>
+           
+           <div class="mb-2 text-gray-400 text-sm">目標：{{ currentHack().desc }}</div>
+           <div class="bg-gray-900 p-4 mb-6 text-gray-200 border-l-4 border-green-600 font-bold whitespace-pre overflow-x-auto">
+{{ currentHack().code }}
+           </div>
+           
+           <div class="text-sm mb-2 text-gray-500">選擇正確的輸出 (Output):</div>
+           <div class="grid grid-cols-2 gap-4">
+               @for (opt of currentHack().options; track opt) {
+                   <button (click)="submitHack(opt)" class="border border-green-700 hover:bg-green-900/50 py-4 text-xl transition-all group relative overflow-hidden">
+                       <span class="absolute left-4 opacity-0 group-hover:opacity-100 transition-opacity">></span>
+                       {{ opt }}
+                   </button>
+               }
+           </div>
+           <div class="mt-4 text-center">
+               <button (click)="closePuzzle()" class="text-gray-500 text-sm underline">放棄破解</button>
+           </div>
+       </div>
+    </div>
+  }
+
+  <!-- 啟動畫面 -->
+  @if (gameState() === 'BOOT') {
+    <div class="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center cursor-pointer" (click)="startGame()">
+      <h1 class="text-7xl font-bold text-gray-200 mb-4 glitch-text tracking-tighter">鬼 校</h1>
+      <h2 class="text-xl text-red-800 tracking-[0.5em] mb-12 uppercase">無盡噩夢</h2>
+      
+      <div class="max-w-md text-left text-gray-500 text-sm space-y-2 border-l border-gray-800 pl-4 mb-8">
+          @if (isMobile()) {
+              <p>左側搖桿: 移動 | 右側滑動: 視角</p>
+              <p>右下按鈕: 互動 / 手電筒 / 蹲下 / 奔跑</p>
+          } @else {
+              <p>按 [WASD] 移動, [SHIFT] 奔跑</p>
+              <p>按 [E] 互動 (開門、躲藏、解謎)</p>
+              <p>按 [F] 手電筒, [C] 蹲下</p>
+              <p>按 [ESC] 暫停遊戲</p>
+          }
+          <p class="text-red-900">警告：含有強烈閃光與驚嚇畫面</p>
+      </div>
+
+      <div class="text-gray-500 text-xs animate-pulse tracking-widest">[ 點擊任意處開始 ]</div>
+    </div>
+  }
+
+  <!-- 暫停選單 -->
+  @if (gameState() === 'PAUSED') {
+    <div class="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center font-mono">
+      <h1 class="text-5xl font-bold text-white mb-8 tracking-widest border-b-2 border-white pb-2">已暫停</h1>
+      
+      <div class="flex flex-col gap-4 w-64">
+        <button (click)="togglePause()" class="border border-white py-3 hover:bg-white hover:text-black transition-colors">
+          繼續遊戲
+        </button>
+        <button (click)="reload()" class="border border-red-800 text-red-500 py-3 hover:bg-red-900 hover:text-white transition-colors">
+          重新開始
+        </button>
+      </div>
+      
+      <div class="mt-12 text-gray-500 text-xs text-center border-t border-gray-800 pt-4 w-64">
+        <p>當前樓層: B{{ floor() }}</p>
+        <p>已解謎題: {{ puzzlesSolved() }}/10</p>
+        <p class="mt-2 text-red-900">不要在黑暗中停留太久...</p>
+      </div>
+    </div>
+  }
+
+  <!-- 死亡畫面 -->
+  @if (gameState() === 'DEAD') {
+    <div class="absolute inset-0 z-50 bg-red-950 flex flex-col items-center justify-center text-center">
+      <h1 class="text-6xl font-bold text-black mb-6 glitch-text">你死了</h1>
+      <p class="text-2xl text-red-200 mb-12 border-b border-red-800 pb-4">{{ puzzleMsg() }}</p>
+      <button (click)="gameState.set('BOOT')" class="border border-black px-8 py-3 hover:bg-black hover:text-red-500 transition-colors tracking-widest bg-red-900/50 text-white">
+        重新開始
+      </button>
+    </div>
+  }
+</div>
