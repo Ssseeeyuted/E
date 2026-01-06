@@ -24,9 +24,9 @@ const CONFIG = {
 };
 
 // --- 類型定義 ---
-type GhostType = 'SHADOW' | 'CRAWLER' | 'MANNEQUIN' | 'SCREAMER' | 'PHANTOM';
+type GhostType = 'SHADOW' | 'CRAWLER' | 'MANNEQUIN' | 'SCREAMER' | 'PHANTOM' | 'HALLUCINATION';
 type GameState = 'BOOT' | 'PLAYING' | 'PUZZLE' | 'HACKING' | 'READING' | 'HIDING' | 'ELEVATOR_RIDE' | 'DEAD' | 'PAUSED';
-type ItemType = 'BATTERY' | 'KEY' | 'BANDAGE' | 'PILLS';
+type ItemType = 'BATTERY' | 'KEY' | 'BANDAGE' | 'PILLS' | 'ALCOHOL' | 'CLOTH' | 'HERB' | 'WATER' | 'METAL' | 'TAPE' | 'WIRE' | 'MOLOTOV' | 'HERBAL_MEDKIT' | 'ADRENALINE' | 'EMP' | 'STIM' | 'ARMOR';
 
 interface Ghost {
     id: number;
@@ -46,26 +46,52 @@ interface PropData {
     description?: string[];
 }
 
+interface Recipe {
+    id: string;
+    result: ItemType;
+    name: string;
+    ingredients: ItemType[];
+    desc: string;
+}
+
+interface Achievement {
+    id: string;
+    title: string;
+    desc: string;
+    icon: string;
+    unlocked: boolean;
+    condition: (state: any) => boolean;
+}
+
 // --- 龐大的敘事資料庫 ---
 const FLAVOR_TEXTS = {
     walls: [
         "牆上滿是抓痕，像是有人拚命想爬上去。", "這面牆摸起來...是溫熱的。", "牆壁滲出了黑色的液體，聞起來像鐵鏽。",
         "有人用指甲在牆上刻了無數個『正』字。", "牆紙剝落的地方，露出了裡面發霉的磚頭。", "牆壁裡傳來了微弱的敲擊聲。",
         "這行字是用血寫的：『它在看著你』。", "牆上的塗鴉寫著每個老師的名字，都被打上了紅叉。", "這裡的油漆剝落成了人臉的形狀。",
-        "牆壁在呼吸...我一定是瘋了。", "別貼著牆走，裡面有東西。", "這面牆是新砌的，裡面藏了什麼？"
+        "牆壁在呼吸...我一定是瘋了。", "別貼著牆走，裡面有東西。", "這面牆是新砌的，裡面藏了什麼？",
+        "牆縫里塞滿了一縷縷的黑發。", "這面牆也是軟的... 像皮膚。", "牆上的霉菌長成了人形。",
+        "有人用指甲在這裡抓出了一條路。", "耳邊傳來牆壁裡的低語：‘留下來’。", "牆上的洞里有一隻眼睛在窺視。",
+        "這裡的塗鴉在動。", "牆面滲出的水是咸的... 像眼淚。"
     ],
     floor: [
         "地板黏黏的，每一步都會發出噁心的聲音。", "地上有一長條拖曳的血跡，延伸到黑暗中。", "小心地上的碎玻璃，那是燒杯的碎片。",
         "地板上散落著幾顆牙齒。", "這裡有一隻鞋子，另一隻在哪裡？", "地上畫著奇怪的粉筆圖案，像是某種儀式。",
-        "地板的縫隙裡長出了黑色的頭髮。", "不要踩到那個...看起來像眼球的東西。", "地上的水坑映照出的不是我的倒影。"
+        "地板的縫隙裡長出了黑色的頭髮。", "不要踩到那個...看起來像眼球的東西。", "地上的水坑映照出的不是我的倒影。",
+        "地磚下傳來了心跳聲。", "這一塊地板是懸空的，下面是深淵。", "滿地都是乾枯的昆蟲屍體。",
+        "地板的紋路看起來像一張尖叫的臉。", "別踩那個影子，它會咬人。", "地上有一排小腳印，通向牆壁裡。"
     ],
     ceiling: [
         "天花板的通風口被暴力扯開了。", "燈管在搖晃，但這裡沒有風。", "上面掛著什麼東西...晃來晃去。",
-        "天花板上有濕透的腳印。", "別抬頭，它會發現你看到了它。", "滴答...滴答...是什麼在滴水？"
+        "天花板上有濕透的腳印。", "別抬頭，它會發現你看到了它。", "滴答...滴答...是什麼在滴水？",
+        "天花板上吊著無數根紅線。", "那些燈管排列成了‘死’字。", "上面有一張巨大的臉在俯視。",
+        "天花板在慢慢下降...", "通風口裡有什麼東西在爬行。", "別讓上面的液體滴到身上。"
     ],
     objects: [
         "這看起來已經壞很久了。", "上面沾滿了灰塵和...是乾掉的血嗎？", "是誰把它留在那裡的？",
-        "這種老式課桌椅，現在已經沒人用了。", "這東西...感覺很不祥。", "上面刻著『救命』兩個字。"
+        "這種老式課桌椅，現在已經沒人用了。", "這東西...感覺很不祥。", "上面刻著『救命』兩個字。",
+        "這個書包裡裝著一隻死貓。", "課桌裡塞滿了帶血的繃帶。", "這把椅子的腿是用骨頭做的。",
+        "垃圾桶裡有還在跳動的東西。", "黑板擦怎麼擦都擦不掉那行血字。", "這瓶藥水... 裡面泡著眼球。"
     ]
 };
 
@@ -76,16 +102,30 @@ const MONOLOGUES = {
         "手電筒的光越來越暗了...", "為什麼只有我一個人在這裡？", "地板上的污漬...看起來像人臉。",
         "記得呼吸...記得呼吸...", "我好像來過這裡...在夢裡。", "那是哭聲嗎？還是風聲？",
         "我好想回家...媽媽...", "這裡的時間是不流動的。", "我的影子剛才是不是自己動了？",
-        "我聽見了廣播聲，但在播放雜訊。", "那是什麼味道？福馬林？", "我的手在發抖。"
+        "我聽見了廣播聲，但在播放雜訊。", "那是什麼味道？福馬林？", "我的手在發抖。",
+        "這走廊好像變長了...", "我聽見隔壁教室有粉筆寫字的声音...", "剛才那個雕像是不是轉頭了？",
+        "空氣變得像膠水一樣粘稠。", "我的表停了，永遠停在 4:44。", "這裡的黑暗... 是活的。",
+        "我感覺肺裡吸滿了霉菌。", "那些畫像... 眼睛一直在跟著我。", "不要接電話... 千萬不要接電話。",
+        "我看到你了... 別躲了... (是幻聽嗎？)", "地上這些... 是頭髮嗎？", "我想醒來，拜託讓我醒來。",
+        "那是誰的影子？不是我的。", "廣播裡在唱... 生日快樂歌？", "我聞到了燒焦的味道。",
+        "這裡沒有盡頭，只有循環。", "我的記憶在流失...", "剛才路過的門消失了。",
+        "別回頭，別回頭，別回頭。", "地板下有抓撓的聲音。", "燈光把我的影子拉成了怪物的形狀。",
+        "那是誰的哭聲？還是笑聲？"
     ],
     scary: [
         "那是什麼聲音？！", "別過來...拜託別過來...", "我聽到了腳步聲，不只一個。",
         "它在牆壁裡面移動...", "天花板上有東西滴下來了。", "燈光在閃爍...它靠近了。",
         "我的心跳好快...", "我不該回頭的。", "它看見我了！它看見我了！", "那是誰的臉？！",
-        "門...門自己打開了。", "笑聲...那是孩子的笑聲..."
+        "門...門自己打開了。", "笑聲...那是孩子的笑聲...",
+        "它在模仿我的聲音！", "那個東西... 它穿過了牆壁！", "好多手... 牆上長出了好多手！",
+        "它看到我了！那個紅色的眼睛！", "快跑！快跑！快跑！", "不要過來！啊啊啊啊！",
+        "它在啃食... 什麼東西？", "鏡子裡的人... 不是我！", "關燈！快關燈！",
+        "它就在天花板上！", "那是... 誰的頭顱？"
     ],
     hurt: [
-        "嘶...好痛...", "我在流血...", "視線開始模糊了...", "我撐不下去了嗎...", "傷口在燃燒..."
+        "嘶...好痛...", "我在流血...", "視線開始模糊了...", "我撐不下去了嗎...", "傷口在燃燒...",
+        "感覺內臟在燃燒...", "血流進眼睛裡了...", "骨頭... 露出來了...",
+        "我感覺不到我的腿了...", "好痛... 救命...", "傷口裡... 有東西在動..."
     ]
 };
 
@@ -119,42 +159,38 @@ const MATH_PUZZLES = [
     { q: "一根繩子折三折後從中間剪斷，共有幾段？", a: "4", hint: "畫圖看看" }
 ];
 
+// 30個備案的駭客任務
 const HACK_CHALLENGES = [
-    { 
-        title: "ELEVATOR_PWR_CTRL",
-        code: "int power = 0;\nfor(int i=0; i<5; i++) {\n  power += 20;\n  if(i == 3) power -= 10;\n}\nprint(power);", 
-        options: ["90", "100", "80", "50"], 
-        ans: "90",
-        desc: "計算最終電力輸出值"
-    },
-    { 
-        title: "SECURITY_DOOR_V2",
-        code: "boolean isLocked = true;\nint keyCard = 5;\n\nif (keyCard > 3 && keyCard < 8) {\n  isLocked = !isLocked;\n}\nprint(isLocked);", 
-        options: ["true", "false", "undefined", "error"], 
-        ans: "false",
-        desc: "判斷門鎖狀態 (true/false)"
-    },
-    { 
-        title: "CAMERA_ARRAY_LOOP",
-        code: "int[] cams = {1, 0, 1, 1};\nint active = 0;\n\nfor(int c : cams) {\n  if(c == 1) active++;\n}\nprint(active);", 
-        options: ["3", "4", "1", "0"], 
-        ans: "3",
-        desc: "計算運作中的攝影機數量"
-    },
-    { 
-        title: "SYSTEM_DATE_CHECK",
-        code: "int year = 1999;\nif (year % 4 == 0) {\n  print('LEAP');\n} else {\n  print('NORMAL');\n}", 
-        options: ["LEAP", "NORMAL", "ERROR", "1999"], 
-        ans: "NORMAL",
-        desc: "判斷閏年邏輯 (1999除以4餘3)"
-    },
-    {
-        title: "FIREWALL_BYPASS",
-        code: "int security = 100;\nwhile(security > 0) {\n  security -= 25;\n  if(security == 50) break;\n}\nprint(security);",
-        options: ["50", "0", "25", "100"],
-        ans: "50",
-        desc: "計算迴圈中斷後的安全值"
-    }
+    { title: "PWR_CALC", code: "int x = 10 * 3;\nprint(x + 5);", options: ["30", "35", "13", "15"], ans: "35", desc: "計算數值" },
+    { title: "LOGIC_GATE_AND", code: "boolean a = true;\nboolean b = false;\nprint(a && b);", options: ["true", "false", "null", "error"], ans: "false", desc: "邏輯 AND 運算" },
+    { title: "LOGIC_GATE_OR", code: "boolean a = true;\nboolean b = false;\nprint(a || b);", options: ["true", "false", "null", "error"], ans: "true", desc: "邏輯 OR 運算" },
+    { title: "LOOP_SUM", code: "int sum = 0;\nfor(int i=1; i<=3; i++) {\n  sum += i;\n}\nprint(sum);", options: ["3", "6", "5", "4"], ans: "6", desc: "計算總和 1+2+3" },
+    { title: "MODULO_OP", code: "int x = 14 % 4;\nprint(x);", options: ["3.5", "2", "3", "1"], ans: "2", desc: "取餘數運算" },
+    { title: "ARRAY_IDX", code: "int[] arr = {10, 20, 30};\nprint(arr[1]);", options: ["10", "20", "30", "error"], ans: "20", desc: "陣列索引取值" },
+    { title: "STR_CONCAT", code: "string s = \"Go\" + \"od\";\nprint(s);", options: ["Good", "Go od", "G+o+o+d", "Error"], ans: "Good", desc: "字串連接" },
+    { title: "IF_ELSE_BASIC", code: "int x = 10;\nif(x > 5) print(\"A\");\nelse print(\"B\");", options: ["A", "B", "AB", "None"], ans: "A", desc: "條件判斷" },
+    { title: "INCREMENT", code: "int x = 5;\nx++;\nprint(x);", options: ["5", "6", "4", "error"], ans: "6", desc: "遞增運算" },
+    { title: "DECREMENT", code: "int x = 5;\nx--;\nprint(x);", options: ["5", "6", "4", "error"], ans: "4", desc: "遞減運算" },
+    { title: "INT_DIV", code: "int x = 7 / 2;\nprint(x);", options: ["3.5", "3", "4", "error"], ans: "3", desc: "整數除法" },
+    { title: "BOOL_NOT", code: "boolean x = !true;\nprint(x);", options: ["true", "false", "null", "1"], ans: "false", desc: "邏輯 NOT 運算" },
+    { title: "WHILE_LOOP", code: "int x = 0;\nwhile(x < 3) x++;\nprint(x);", options: ["2", "3", "4", "0"], ans: "3", desc: "While 迴圈計數" },
+    { title: "ARRAY_LEN", code: "int[] arr = {1, 2, 3, 4};\nprint(arr.length);", options: ["3", "4", "5", "0"], ans: "4", desc: "陣列長度" },
+    { title: "OP_PRIORITY", code: "int x = 2 + 3 * 2;\nprint(x);", options: ["10", "8", "7", "6"], ans: "8", desc: "運算優先級 (先乘除後加減)" },
+    { title: "EQUALITY", code: "print(5 == 5);", options: ["true", "false", "5", "error"], ans: "true", desc: "相等比較" },
+    { title: "INEQUALITY", code: "print(10 != 10);", options: ["true", "false", "10", "error"], ans: "false", desc: "不相等比較" },
+    { title: "NESTED_IF", code: "int x=10, y=5;\nif(x>5) {\n  if(y<10) print(\"Y\");\n  else print(\"N\");\n}", options: ["Y", "N", "YN", "Empty"], ans: "Y", desc: "巢狀條件判斷" },
+    { title: "STR_LEN", code: "string s = \"HELLO\";\nprint(s.length);", options: ["4", "5", "6", "0"], ans: "5", desc: "字串長度" },
+    { title: "CHAR_AT", code: "string s = \"ABC\";\nprint(s.charAt(0));", options: ["A", "B", "C", "0"], ans: "A", desc: "獲取字元" },
+    { title: "TERNARY_OP", code: "int x = (5 > 3) ? 1 : 2;\nprint(x);", options: ["1", "2", "5", "3"], ans: "1", desc: "三元運算符" },
+    { title: "FLOAT_CAST", code: "float f = 3.9;\nint i = (int)f;\nprint(i);", options: ["3", "4", "3.9", "error"], ans: "3", desc: "強制轉型 (捨去小數)" },
+    { title: "MATH_POW", code: "int x = pow(2, 3);\nprint(x);", options: ["6", "8", "9", "5"], ans: "8", desc: "指數運算 2的3次方" },
+    { title: "MATH_ABS", code: "int x = abs(-15);\nprint(x);", options: ["-15", "15", "0", "error"], ans: "15", desc: "絕對值" },
+    { title: "MATH_MAX", code: "print(max(10, 20));", options: ["10", "20", "30", "0"], ans: "20", desc: "取最大值" },
+    { title: "LOOP_SKIP", code: "int x=0;\nfor(i=0;i<5;i++) {\n  if(i==2) continue;\n  x++;\n}\nprint(x);", options: ["4", "5", "3", "2"], ans: "4", desc: "迴圈 Continue" },
+    { title: "LOOP_BREAK", code: "int x=0;\nfor(i=0;i<5;i++) {\n  if(i==2) break;\n  x++;\n}\nprint(x);", options: ["2", "3", "4", "5"], ans: "2", desc: "迴圈 Break" },
+    { title: "NULL_CHECK", code: "string s = null;\nif(s == null) print(\"T\");\nelse print(\"F\");", options: ["T", "F", "Error", "Null"], ans: "T", desc: "Null 檢查" },
+    { title: "CASE_SWITCH", code: "int x=1;\nswitch(x) {\n case 1: print(\"A\"); break;\n case 2: print(\"B\"); break;\n}", options: ["A", "B", "AB", "None"], ans: "A", desc: "Switch 語句" },
+    { title: "RETURN_VAL", code: "int f() { return 5; }\nprint(f() + 1);", options: ["5", "6", "1", "error"], ans: "6", desc: "函數返回值" }
 ];
 
 @Component({
@@ -168,6 +204,7 @@ export class AppComponent {
   
   // -- 遊戲狀態 --
   gameState = signal<GameState>('BOOT');
+  activePauseTab = signal<'STATUS' | 'INVENTORY' | 'CRAFT' | 'ACHIEVEMENT'>('STATUS');
   
   // HUD 數值
   stamina = signal(100);
@@ -178,6 +215,55 @@ export class AppComponent {
   puzzlesSolved = signal(0);
   inventory = signal<string[]>([]);
   statusEffects = signal<string[]>([]); 
+  
+  // 物品描述映射
+  itemDescriptions: {[key: string]: string} = {
+      'BATTERY': '標準 9V 電池，可為手電筒充電。',
+      'KEY': '生鏽的舊鑰匙，或許能打開某些東西？',
+      'BANDAGE': '乾淨的繃帶，能止血並恢復少量生命。',
+      'PILLS': '未標示的藥丸，似乎有鎮靜作用，能恢復理智。',
+      'ALCOHOL': '醫用酒精，易燃。合成材料。',
+      'CLOTH': '一塊破布。合成材料。',
+      'HERB': '奇怪的綠色草藥，散發著清香。合成材料。',
+      'WATER': '礦泉水。合成材料。',
+      'METAL': '銳利的金屬廢料。合成材料。',
+      'TAPE': '強力膠帶。合成材料。',
+      'WIRE': '電子線路。合成材料。',
+      'MOLOTOV': '自製燃燒彈。投擲可暈眩鬼魂 5 秒。',
+      'HERBAL_MEDKIT': '草藥急救包。恢復 50 點生命。',
+      'ADRENALINE': '急救用腎上腺素。恢復所有體力並提升理智。',
+      'EMP': '電磁脈衝裝置。癱瘓周圍所有鬼魂 10 秒。',
+      'STIM': '強效興奮劑。30 秒內體力無限。',
+      'ARMOR': '用廢料製成的簡易護甲。提供 50 點額外防護。'
+  };
+
+  // 成就系統
+  achievements = signal<Achievement[]>([
+      { id: 'FIRST_STEPS', title: '初入深淵', desc: '進入 B2 層', icon: '🏃', unlocked: false, condition: (s) => s.floor >= 2 },
+      { id: 'DEEP_DIVER', title: '深淵行者', desc: '抵達 B5 層', icon: '🕳️', unlocked: false, condition: (s) => s.floor >= 5 },
+      { id: 'SURVIVOR', title: '生存本能', desc: '合成一件物品', icon: '🛠️', unlocked: false, condition: (s) => s.craftedCount > 0 },
+      { id: 'ALCHEMIST', title: '鍊金術士', desc: '合成 5 件物品', icon: '⚗️', unlocked: false, condition: (s) => s.craftedCount >= 5 },
+      { id: 'GHOST_HUNTER', title: '反擊', desc: '使用火焰彈暈眩鬼魂', icon: '🔥', unlocked: false, condition: (s) => s.ghostStunned },
+      { id: 'TECH_SAVVY', title: '科技壓制', desc: '使用 EMP 癱瘓鬼魂', icon: '⚡', unlocked: false, condition: (s) => s.empUsed },
+      { id: 'MASTER_MIND', title: '解謎大師', desc: '解開 5 個謎題', icon: '🧠', unlocked: false, condition: (s) => s.puzzlesSolved >= 5 },
+      { id: 'HOARDER', title: '倉鼠症', desc: '背包中有 5 個物品', icon: '🎒', unlocked: false, condition: (s) => s.inventory.length >= 5 },
+      { id: 'IRON_WILL', title: '鋼鐵意志', desc: '在理智低於 10% 時存活', icon: '👁️', unlocked: false, condition: (s) => s.lowSanity },
+      { id: 'NEAR_DEATH', title: '死裡逃生', desc: '生命值低於 20% 時恢復', icon: '🩸', unlocked: false, condition: (s) => s.healedNearDeath }
+  ]);
+  achievementQueue = signal<Achievement[]>([]);
+  
+  // 合成配方
+  craftingRecipes: Recipe[] = [
+      { id: 'MOLOTOV', result: 'MOLOTOV', name: '火焰彈', ingredients: ['ALCOHOL', 'CLOTH'], desc: '暈眩鬼魂 5 秒' },
+      { id: 'HERBAL_MEDKIT', result: 'HERBAL_MEDKIT', name: '草藥包', ingredients: ['HERB', 'WATER'], desc: '恢復 50 生命' },
+      { id: 'ADRENALINE', result: 'ADRENALINE', name: '腎上腺素', ingredients: ['PILLS', 'BATTERY'], desc: '恢復體力與理智' },
+      { id: 'EMP', result: 'EMP', name: 'EMP 裝置', ingredients: ['BATTERY', 'WIRE', 'METAL'], desc: '大範圍癱瘓鬼魂 (10秒)' },
+      { id: 'STIM', result: 'STIM', name: '強效興奮劑', ingredients: ['PILLS', 'WATER', 'HERB'], desc: '30秒無限體力' },
+      { id: 'ARMOR', result: 'ARMOR', name: '簡易護甲', ingredients: ['CLOTH', 'TAPE', 'METAL'], desc: '增加 50 點額外生命' }
+  ];
+  craftedCount = 0;
+  empUsed = false; // For achievement tracking
+  infiniteStaminaTimer = 0;
   
   // UI 互動
   showInteract = signal(false);
@@ -249,6 +335,7 @@ export class AppComponent {
   private sanityEventTimer = 0;
   private nextSanityEventTime = 10;
   private bleedTimer = 0;
+  private hallucinationTimer = 0;
 
   constructor() {
     // 簡單的手機偵測
@@ -429,6 +516,8 @@ export class AppComponent {
           this.isRunning = !this.isRunning;
       } else if (action === 'pause') {
           this.togglePause();
+      } else if (action === 'inventory') {
+          this.toggleInventory();
       }
   }
 
@@ -470,6 +559,7 @@ export class AppComponent {
         this.updateDoors(dt);
         this.updateSanityEffects(now, dt);
         this.updateStatusEffects(dt);
+        this.checkAchievements();
     } 
     else if (this.gameState() === 'HIDING') {
         this.updateHiding(dt, now);
@@ -506,13 +596,23 @@ export class AppComponent {
 
   private updatePlayer(dt: number, time: number) {
     let currentStamina = this.stamina();
-    if (!this.isRunning && currentStamina < CONFIG.staminaMax) currentStamina += CONFIG.staminaRegen * dt;
+    
+    // 無限體力邏輯
+    if (this.infiniteStaminaTimer > 0) {
+        this.infiniteStaminaTimer -= dt;
+        currentStamina = 100;
+        if (this.infiniteStaminaTimer <= 0) this.showToast("興奮劑效果結束");
+    } else {
+        if (!this.isRunning && currentStamina < CONFIG.staminaMax) currentStamina += CONFIG.staminaRegen * dt;
+    }
     
     let speed = CONFIG.walkSpeed;
     if (this.isCrouching) speed = CONFIG.crouchSpeed;
     else if (this.isRunning && currentStamina > 0) { 
         speed = CONFIG.runSpeed; 
-        currentStamina -= CONFIG.staminaDrain * dt; 
+        if (this.infiniteStaminaTimer <= 0) {
+            currentStamina -= CONFIG.staminaDrain * dt; 
+        }
     }
     this.stamina.set(Math.max(0, Math.min(100, currentStamina)));
 
@@ -527,12 +627,23 @@ export class AppComponent {
         this.sanity.update(s => Math.max(0, s - sanityDrain * dt));
     }
 
+    // --- Control Distortion based on Sanity ---
+    let inputFwd = this.input.fwd;
+    let inputRight = this.input.right;
+
+    if (this.sanity() < 40 && Math.random() < 0.02) {
+         // Randomly invert controls or stumble
+         inputFwd *= -1;
+         inputRight *= -1;
+         this.camera.rotation.z += (Math.random() - 0.5) * 0.05;
+    }
+
     const dir = new THREE.Vector3();
     const fwd = new THREE.Vector3();
     this.camera.getWorldDirection(fwd); 
     fwd.y = 0; fwd.normalize();
     const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0));
-    dir.addScaledVector(fwd, this.input.fwd).addScaledVector(right, this.input.right);
+    dir.addScaledVector(fwd, inputFwd).addScaledVector(right, inputRight);
 
     if (dir.lengthSq() > 0) {
         dir.normalize();
@@ -592,11 +703,23 @@ export class AppComponent {
   }
 
   private updateSanityEffects(time: number, dt: number) {
-      if (this.sanity() < 50) {
-          this.camera.fov = 70 + Math.sin(time * 2.5) * (50 - this.sanity()) * 0.15;
+      const s = this.sanity();
+      
+      // Hallucination Timer
+      if (s < 50) {
+          this.hallucinationTimer += dt;
+          // Spawn fake ghost more frequently as sanity drops
+          const threshold = s < 20 ? 5 : (s < 40 ? 10 : 20);
+          if (this.hallucinationTimer > threshold) {
+              this.spawnGhost('HALLUCINATION');
+              this.hallucinationTimer = 0;
+              this.showToast("這裡是哪裡...？");
+          }
+
+          this.camera.fov = 70 + Math.sin(time * 2.5) * (50 - s) * 0.15;
           this.camera.updateProjectionMatrix();
           
-          if (Math.random() < (100 - this.sanity()) * 0.0002) {
+          if (Math.random() < (100 - s) * 0.0002) {
               this.camera.rotation.z += (Math.random() - 0.5) * 0.15;
               setTimeout(() => this.camera.rotation.z = 0, 150);
           }
@@ -645,7 +768,8 @@ export class AppComponent {
   // --- 鬼魂 AI ---
 
   private spawnGhost(type: GhostType) {
-      if (this.floor() < 2) return; 
+      // Allow hallucinations on any floor
+      if (type !== 'HALLUCINATION' && this.floor() < 2) return; 
       
       const id = ++this.entityIdCounter;
       let mesh: THREE.Group | THREE.Mesh;
@@ -677,6 +801,14 @@ export class AppComponent {
               (mesh.children[1] as THREE.Mesh).material = new THREE.MeshBasicMaterial({color: 0x88ff88, transparent: true, opacity: 0.3});
               startPos.copy(this.camera.position).add(new THREE.Vector3(5, 0, 5));
               break;
+          case 'HALLUCINATION':
+              mesh = this.createGhostMesh(0xffffff, 1.7);
+              (mesh.children[0] as THREE.Mesh).material = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.2});
+              (mesh.children[1] as THREE.Mesh).material = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.2});
+              const camDir = new THREE.Vector3();
+              this.camera.getWorldDirection(camDir);
+              startPos.copy(this.camera.position).addScaledVector(camDir, 8); // Spawn in front
+              break;
           default: return;
       }
       
@@ -693,9 +825,10 @@ export class AppComponent {
       if (type === 'MANNEQUIN') { ghost.speed = 8.0; ghost.state = 'FROZEN'; this.triggerMonologue("那個雕像剛剛動了嗎？", 2000); }
       if (type === 'SCREAMER') { ghost.speed = 2.0; ghost.state = 'WANDERING'; }
       if (type === 'PHANTOM') { ghost.speed = 1.5; }
+      if (type === 'HALLUCINATION') { ghost.speed = 15.0; this.playSound('scream'); } // Fast rush
 
       this.activeGhosts.push(ghost);
-      this.playSound('breath');
+      if(type !== 'HALLUCINATION') this.playSound('breath');
   }
 
   private createGhostMesh(color: number, height: number): THREE.Group {
@@ -724,6 +857,14 @@ export class AppComponent {
           }
 
           if (this.gameState() === 'HIDING' && dist > 2) return;
+          
+          if (g.state === 'FROZEN') {
+              g.data.frozenTimer = (g.data.frozenTimer || 0) - dt;
+              if (g.data.frozenTimer <= 0 && g.type !== 'MANNEQUIN') {
+                  g.state = 'CHASING';
+              }
+              if (g.type !== 'MANNEQUIN') return; // Don't move if stunned
+          }
 
           const dirToPlayer = new THREE.Vector3().subVectors(playerPos, g.mesh.position).normalize();
           
@@ -780,6 +921,19 @@ export class AppComponent {
                   g.mesh.position.addScaledVector(dirToPlayer, g.speed * dt);
                   if (dist < 1.0) this.triggerDeath("它穿過了你的身體，帶走了靈魂");
                   break;
+
+              case 'HALLUCINATION':
+                   // Rush directly at player
+                   g.mesh.lookAt(playerPos);
+                   g.mesh.position.addScaledVector(dirToPlayer, g.speed * dt);
+                   if (dist < 1.0) {
+                       g.active = false;
+                       this.scene.remove(g.mesh);
+                       this.playSound('scream');
+                       // Just a scare, no damage
+                       this.sanity.update(s => Math.max(0, s - 10));
+                   }
+                   break;
           }
       });
   }
@@ -794,6 +948,9 @@ export class AppComponent {
       const matGlass = new THREE.MeshStandardMaterial({color: 0x88cccc, transparent: true, opacity: 0.4});
       const matBone = new THREE.MeshStandardMaterial({color: 0xe3dac9, roughness: 0.5});
       const matBlack = new THREE.MeshStandardMaterial({color: 0x111111});
+      const matWhite = new THREE.MeshStandardMaterial({color: 0xdddddd});
+      const matGreen = new THREE.MeshStandardMaterial({color: 0x22aa22});
+      const matBlue = new THREE.MeshStandardMaterial({color: 0x2222aa});
 
       this.assets['bucket'] = { 
           geo: new THREE.CylinderGeometry(0.3, 0.25, 0.4), mat: matGrey, name: '生鏽的水桶',
@@ -851,6 +1008,50 @@ export class AppComponent {
       this.assets['bottle'] = { 
           geo: new THREE.CylinderGeometry(0.05, 0.05, 0.25), mat: matGlass, name: '化學藥劑瓶',
           description: ["標籤被撕掉了。", "液體呈現不自然的紫色。", "瓶口有結晶。", "聞起來像杏仁味...氰化物？"]
+      };
+
+      // --- 新增更多物品 ---
+      this.assets['doll'] = {
+          geo: new THREE.CylinderGeometry(0.1, 0.1, 0.25), mat: new THREE.MeshStandardMaterial({color: 0xcc8866}), name: '破損的洋娃娃',
+          description: ["它的眼睛被挖掉了。", "笑得很詭異。", "背後的發條還在轉動。", "抱起來感覺像是濕的。"]
+      };
+      this.assets['radio'] = {
+          geo: new THREE.BoxGeometry(0.4, 0.25, 0.15), mat: new THREE.MeshStandardMaterial({color: 0x332211}), name: '老式收音機',
+          description: ["只發出沙沙聲。", "旋鈕上沾了血。", "偶爾會傳出人聲...是求救嗎？"]
+      };
+      this.assets['fan'] = {
+          geo: new THREE.CylinderGeometry(0.25, 0.25, 0.1), mat: new THREE.MeshStandardMaterial({color: 0x444455}), name: '斷扇葉的風扇',
+          description: ["扇葉像是切過什麼硬物，缺了一角。", "插頭已經斷了。", "上面纏滿了頭髮。"]
+      };
+      this.assets['umbrella'] = {
+          geo: new THREE.ConeGeometry(0.1, 0.8, 8), mat: new THREE.MeshStandardMaterial({color: 0x880000}), name: '紅傘',
+          description: ["在室內打傘會招鬼...誰把它放在這的？", "傘尖很尖銳。", "傘布上有奇怪的符咒。"]
+      };
+      this.assets['mop'] = {
+          geo: new THREE.CylinderGeometry(0.05, 0.05, 1.2), mat: new THREE.MeshStandardMaterial({color: 0x999999}), name: '吸滿水的拖把',
+          description: ["水是紅色的。", "散發著腥味。", "拖把頭像是一頂假髮。"]
+      };
+      this.assets['painting'] = {
+          geo: new THREE.PlaneGeometry(0.5, 0.7), mat: new THREE.MeshStandardMaterial({color: 0x222222}), name: '被劃爛的畫',
+          description: ["畫中人的臉被刮掉了。", "看起來像是校長的肖像。", "背後藏著什麼嗎？沒有。"]
+      };
+      this.assets['trophy'] = {
+          geo: new THREE.CylinderGeometry(0.1, 0.05, 0.3), mat: new THREE.MeshStandardMaterial({color: 0xaa8800, roughness: 0.4}), name: '生鏽的獎盃',
+          description: ["第一名...是用什麼換來的？", "底座刻著『獻給最聽話的學生』。", "裡面裝滿了牙齒。"]
+      };
+
+      // --- 新增互動道具 ---
+      this.assets['phone'] = {
+          geo: new THREE.BoxGeometry(0.3, 0.2, 0.3), mat: new THREE.MeshStandardMaterial({color: 0x111111}), name: '黑色轉盤電話',
+          description: ["電話線被剪斷了。", "聽筒裡只有忙音...", "半夜會響起鈴聲。"]
+      };
+      this.assets['tv'] = {
+          geo: new THREE.BoxGeometry(0.5, 0.4, 0.4), mat: new THREE.MeshStandardMaterial({color: 0x333333, emissive: 0x333333, emissiveIntensity: 0.2}), name: '老式電視',
+          description: ["螢幕上只有雪花。", "靠近時會聽到尖銳的噪音。", "有時候會閃過人臉。"]
+      };
+      this.assets['mannequin_head'] = {
+          geo: new THREE.SphereGeometry(0.2), mat: new THREE.MeshStandardMaterial({color: 0xeeeeee}), name: '假人頭',
+          description: ["它的眼睛...在轉動？", "臉上畫著詭異的妝。", "放在地上像是一顆球。"]
       };
   }
 
@@ -919,7 +1120,13 @@ export class AppComponent {
     }
     
     if (!safe && this.floor() >= 2) {
-        if (Math.random() < CONFIG.ghostSpawnChance) {
+        // Sanity-based spawn rate calculation
+        const s = this.sanity();
+        const baseChance = CONFIG.ghostSpawnChance; // 0.4
+        // If sanity is low (<40), increase spawn chance up to double
+        const modifier = s < 40 ? ((40 - s) / 40) * 0.4 : 0;
+        
+        if (Math.random() < (baseChance + modifier)) {
             const types: GhostType[] = ['SHADOW', 'CRAWLER', 'MANNEQUIN', 'SCREAMER', 'PHANTOM'];
             this.spawnGhost(types[Math.floor(Math.random() * types.length)]);
         }
@@ -960,29 +1167,19 @@ export class AppComponent {
           const z = -Math.random() * 20;
           const r = Math.random();
           
-          let type = '';
-          if (r < 0.05) type = 'bucket';
-          else if (r < 0.1) type = 'cone';
-          else if (r < 0.15) type = 'trash';
-          else if (r < 0.2) type = 'book';
-          else if (r < 0.25) type = 'glass';
-          else if (r < 0.3) type = 'medkit_empty';
-          else if (r < 0.35) type = 'pipe_loose';
-          else if (r < 0.4) type = 'shoe';
-          else if (r < 0.45) type = 'skull';
-          else if (r < 0.5) type = 'backpack';
-          else if (r < 0.55) type = 'monitor';
-          else if (r < 0.6) type = 'bottle';
-
-          if (type) this.spawnProp(type, x, z, group, '');
-          
-          else if (r < 0.7) {
+          if (r < 0.7) {
+              // 隨機選擇一個已註冊的物品
+              const keys = Object.keys(this.assets);
+              const key = keys[Math.floor(Math.random() * keys.length)];
+              this.spawnProp(key, x, z, group, '');
+          }
+          else if (r < 0.8) {
               const note = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), new THREE.MeshBasicMaterial({color: 0xeeeeee}));
               note.rotation.x = -Math.PI/2; note.position.set(x, 0.02, z);
               note.rotation.z = Math.random() * Math.PI;
               group.add(note);
               this.interactables.push({mesh: note, type: 'note', hoverText: '閱讀紙條', data: this.getRand(LORE_NOTES)});
-          } else if (r < 0.8) {
+          } else if (r < 0.9) {
               this.spawnItem(x, z, group);
           }
       }
@@ -1007,20 +1204,55 @@ export class AppComponent {
       let geo = new THREE.CylinderGeometry(0.1, 0.1, 0.3);
       let text = '撿起電池';
 
-      if (r < 0.4) {
+      if (r < 0.25) {
           type = 'BATTERY'; 
           color = 0x00ff00;
           text = '撿起電池';
-      } else if (r < 0.6) {
+      } else if (r < 0.35) {
           type = 'BANDAGE'; 
           geo = new THREE.BoxGeometry(0.3, 0.1, 0.3);
           color = 0xffffff;
           text = '撿起繃帶';
-      } else if (r < 0.8) {
+      } else if (r < 0.45) {
           type = 'PILLS'; 
           geo = new THREE.CylinderGeometry(0.05, 0.05, 0.15);
           color = 0x0000ff;
           text = '撿起鎮靜劑';
+      } else if (r < 0.55) {
+          type = 'ALCOHOL';
+          geo = new THREE.CylinderGeometry(0.08, 0.08, 0.3);
+          color = 0xdddddd;
+          text = '撿起酒精';
+      } else if (r < 0.65) {
+          type = 'CLOTH';
+          geo = new THREE.BoxGeometry(0.3, 0.05, 0.3);
+          color = 0xaaaaaa;
+          text = '撿起布料';
+      } else if (r < 0.75) {
+          type = 'HERB';
+          geo = new THREE.ConeGeometry(0.1, 0.2, 4);
+          color = 0x22aa22;
+          text = '撿起草藥';
+      } else if (r < 0.85) {
+          type = 'WATER';
+          geo = new THREE.CylinderGeometry(0.08, 0.08, 0.25);
+          color = 0x2222aa;
+          text = '撿起礦泉水';
+      } else if (r < 0.90) {
+          type = 'METAL';
+          geo = new THREE.DodecahedronGeometry(0.15);
+          color = 0x888888;
+          text = '撿起金屬廢料';
+      } else if (r < 0.94) {
+          type = 'TAPE';
+          geo = new THREE.TorusGeometry(0.1, 0.04, 8, 16);
+          color = 0xcccccc;
+          text = '撿起膠帶';
+      } else if (r < 0.98) {
+          type = 'WIRE';
+          geo = new THREE.BoxGeometry(0.2, 0.05, 0.2);
+          color = 0xcc3333;
+          text = '撿起電子零件';
       } else {
           type = 'KEY';
           geo = new THREE.BoxGeometry(0.1, 0.1, 0.3);
@@ -1180,17 +1412,18 @@ export class AppComponent {
       this.playSound('click');
       switch(target.type) {
           case 'pickup':
-              if (target.data === 'BATTERY') {
+              const type = target.data;
+              if (type === 'BATTERY') {
                   this.battery.set(100);
                   this.showToast("更換電池 (100%)");
-              } else if (target.data === 'KEY') {
-                  this.inventory.update(i => [...i, 'KEY']);
-                  this.showToast("獲得：舊校舍鑰匙");
-              } else if (target.data === 'BANDAGE') {
+              } else if (['KEY', 'ALCOHOL', 'CLOTH', 'HERB', 'WATER', 'METAL', 'TAPE', 'WIRE'].includes(type)) {
+                  this.inventory.update(i => [...i, type]);
+                  this.showToast("獲得：" + type);
+              } else if (type === 'BANDAGE') {
                   this.statusEffects.update(s => s.filter(e => e !== 'BLEEDING'));
                   this.health.update(h => Math.min(100, h + 20));
                   this.showToast("使用繃帶：止血並恢復生命");
-              } else if (target.data === 'PILLS') {
+              } else if (type === 'PILLS') {
                   this.sanity.update(s => Math.min(100, s + 40));
                   this.showToast("吞下鎮靜劑：理智恢復");
               }
@@ -1226,6 +1459,131 @@ export class AppComponent {
       }
   }
 
+  // --- 合成與物品使用 ---
+  
+  craftItem(recipe: Recipe) {
+      const inv = this.inventory();
+      const tempInv = [...inv];
+      let canCraft = true;
+      
+      // 檢查材料
+      for (const ing of recipe.ingredients) {
+          const idx = tempInv.indexOf(ing);
+          if (idx === -1) {
+              canCraft = false;
+              break;
+          }
+          tempInv.splice(idx, 1);
+      }
+      
+      if (canCraft) {
+          this.inventory.set([...tempInv, recipe.result]);
+          this.craftedCount++;
+          this.showToast(`合成成功：${recipe.name}`);
+          this.playSound('click');
+      } else {
+          this.showToast("材料不足！");
+      }
+  }
+  
+  useInventoryItem(item: string) {
+      if (item === 'MOLOTOV') {
+          // 暈眩最近的鬼魂
+          const nearby = this.activeGhosts.find(g => g.active && g.mesh.position.distanceTo(this.camera.position) < 15);
+          if (nearby) {
+              nearby.state = 'FROZEN';
+              nearby.data.frozenTimer = 5.0; // 暈眩 5 秒
+              this.showToast("投擲火焰彈！鬼魂被暈眩了！");
+              this.activeGhosts.forEach(g => { if (g === nearby) g.data.ghostStunned = true; }); // 標記用於成就
+              this.removeFromInventory(item);
+          } else {
+              this.showToast("附近沒有目標！");
+          }
+      } else if (item === 'EMP') {
+          // 強力暈眩所有鬼魂
+          let hit = false;
+          this.activeGhosts.forEach(g => {
+              if (g.active && g.mesh.position.distanceTo(this.camera.position) < 30) {
+                  g.state = 'FROZEN';
+                  g.data.frozenTimer = 10.0;
+                  hit = true;
+              }
+          });
+          
+          if (hit) {
+              this.showToast("EMP 啟動！所有電子設備與靈體已癱瘓。");
+              this.empUsed = true;
+              this.flashlightOn = false; // 副作用：手電筒熄滅
+              setTimeout(() => this.flashlightOn = true, 3000);
+              this.removeFromInventory(item);
+          } else {
+               this.showToast("EMP 啟動...但沒有偵測到靈體反應。");
+               this.removeFromInventory(item);
+          }
+      } else if (item === 'HERBAL_MEDKIT') {
+          if (this.health() < 20) { this.checkAchievements(); /* Trigger NEAR_DEATH if applicable via loop */ }
+          this.health.update(h => Math.min(100, h + 50));
+          this.statusEffects.update(s => s.filter(e => e !== 'BLEEDING'));
+          this.showToast("使用草藥包：生命大幅恢復");
+          this.removeFromInventory(item);
+      } else if (item === 'ADRENALINE') {
+          this.stamina.set(100);
+          this.sanity.update(s => Math.min(100, s + 20));
+          this.showToast("注射腎上腺素：體力全滿");
+          this.removeFromInventory(item);
+      } else if (item === 'STIM') {
+          this.infiniteStaminaTimer = 30;
+          this.showToast("注射興奮劑：30秒內體力無限！");
+          this.removeFromInventory(item);
+      } else if (item === 'ARMOR') {
+          this.health.update(h => h + 50); // 允許超過 100
+          this.showToast("裝備簡易護甲：生命值增加 50");
+          this.removeFromInventory(item);
+      }
+  }
+
+  removeFromInventory(item: string) {
+      const inv = this.inventory();
+      const idx = inv.indexOf(item);
+      if (idx > -1) {
+          inv.splice(idx, 1);
+          this.inventory.set([...inv]);
+      }
+  }
+
+  // --- 成就系統 ---
+  
+  checkAchievements() {
+      const state = {
+          floor: this.floor(),
+          craftedCount: this.craftedCount,
+          ghostStunned: this.activeGhosts.some(g => g.data.ghostStunned),
+          puzzlesSolved: this.puzzlesSolved(),
+          inventory: this.inventory(),
+          empUsed: this.empUsed,
+          lowSanity: this.sanity() < 10,
+          healedNearDeath: this.health() < 20 // This is a simplified check, ideally triggered on heal
+      };
+      
+      this.achievements.update(list => {
+          return list.map(ach => {
+              if (!ach.unlocked && ach.condition(state)) {
+                  this.showAchievementToast(ach);
+                  return { ...ach, unlocked: true };
+              }
+              return ach;
+          });
+      });
+  }
+  
+  showAchievementToast(ach: Achievement) {
+      this.achievementQueue.update(q => [...q, ach]);
+      setTimeout(() => {
+          this.achievementQueue.update(q => q.filter(a => a !== ach));
+      }, 4000);
+      this.playSound('click');
+  }
+
   // --- 輸入與工具 ---
   private inputInteraction = false;
 
@@ -1243,11 +1601,17 @@ export class AppComponent {
                   case 'KeyC': this.isCrouching = true; break;
                   case 'KeyF': this.flashlightOn = !this.flashlightOn; this.playSound('click'); break;
                   case 'KeyE': this.inputInteraction = true; setTimeout(()=>this.inputInteraction=false, 100); break;
+                  case 'KeyI': 
+                  case 'Tab': 
+                      e.preventDefault(); 
+                      this.toggleInventory(); 
+                      break;
               }
               if (Math.random() < 0.001) this.triggerMonologue(this.getRand(MONOLOGUES.idle), 3000);
 
           } else if (this.gameState() === 'PAUSED') {
               if (e.code === 'Escape') this.togglePause();
+              if (e.code === 'KeyI' || e.code === 'Tab') { e.preventDefault(); this.toggleInventory(); }
 
           } else if (this.gameState() === 'HIDING') {
               if (e.code === 'KeyE') this.exitHiding();
@@ -1266,10 +1630,26 @@ export class AppComponent {
   togglePause() {
       if (this.gameState() === 'PLAYING') {
           this.gameState.set('PAUSED');
+          this.activePauseTab.set('STATUS'); // Default to status on ESC
           if (!this.isMobile()) this.controls.unlock();
       } else if (this.gameState() === 'PAUSED') {
           this.gameState.set('PLAYING');
           this.safeLock();
+      }
+  }
+
+  toggleInventory() {
+      if (this.gameState() === 'PLAYING') {
+          this.gameState.set('PAUSED');
+          this.activePauseTab.set('INVENTORY');
+          if (!this.isMobile()) this.controls.unlock();
+      } else if (this.gameState() === 'PAUSED') {
+          if (this.activePauseTab() === 'INVENTORY') {
+              this.gameState.set('PLAYING');
+              this.safeLock();
+          } else {
+              this.activePauseTab.set('INVENTORY');
+          }
       }
   }
 
@@ -1295,7 +1675,7 @@ export class AppComponent {
       t.position.set(0, 0.5, -3); this.scene.add(t); this.wallMeshes.push(t);
       const n = new THREE.Mesh(new THREE.PlaneGeometry(0.3,0.4), new THREE.MeshBasicMaterial({color:0xfff}));
       n.rotation.x=-Math.PI/2; n.position.set(0, 1.01, -3); this.scene.add(n);
-      this.interactables.push({mesh:n, type:'note', hoverText:'閱讀', data:'【生存指南】\n1. 鬼魂會在B2層開始出現。\n2. 若聽見心跳聲，立刻找鐵櫃躲藏。\n3. 解開10個謎題才能啟動電梯離開。\n4. 省著點用手電筒...黑暗會吞噬你的理智。\n5. [ESC] 可暫停。\n6. 注意流血狀態，尋找繃帶。'});
+      this.interactables.push({mesh:n, type:'note', hoverText:'閱讀', data:'【生存指南】\n1. 鬼魂會在B2層開始出現。\n2. 若聽見心跳聲，立刻找鐵櫃躲藏。\n3. 解開10個謎題才能啟動電梯離開。\n4. 省著點用手電筒...黑暗會吞噬你的理智。\n5. [ESC] 可暫停，[TAB/I] 開啟背包。\n6. 注意流血狀態，尋找繃帶。'});
   }
 
   private triggerMonologue(txt: string, dur: number) {

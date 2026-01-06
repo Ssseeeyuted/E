@@ -15,6 +15,21 @@
       <div class="absolute inset-0 pointer-events-none z-10 box-border border-[20px] border-red-900/50 animate-pulse blur-sm"></div>
   }
 
+  <!-- 成就解鎖通知 (Toast) - 桌面版 Top-10, 手機版 Top-16 (避開頂部資訊) -->
+  <div class="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-50 pointer-events-none w-full"
+       [class.top-10]="!isMobile()" [class.top-16]="isMobile()">
+      @for (ach of achievementQueue(); track ach.id) {
+          <div class="bg-gradient-to-r from-yellow-900/80 to-black border border-yellow-500 text-yellow-100 px-6 py-3 rounded shadow-lg flex items-center gap-4 animate-[bounce_0.5s]">
+              <div class="text-3xl">{{ ach.icon }}</div>
+              <div>
+                  <div class="text-xs text-yellow-500 font-bold uppercase tracking-widest">Achievement Unlocked</div>
+                  <div class="text-lg font-bold">{{ ach.title }}</div>
+                  <div class="text-xs opacity-80">{{ ach.desc }}</div>
+              </div>
+          </div>
+      }
+  </div>
+
   <!-- 躲藏介面 -->
   @if (gameState() === 'HIDING') {
       <div class="absolute inset-0 z-15 bg-black pointer-events-none">
@@ -41,8 +56,14 @@
   @if (isMobile() && gameState() === 'PLAYING') {
       <div class="absolute inset-0 z-30 pointer-events-none">
           
-          <!-- 暫停按鈕 (右上) -->
-          <div class="absolute top-4 right-4 pointer-events-auto">
+          <!-- 頂部按鈕群 -->
+          <div class="absolute top-4 right-4 pointer-events-auto flex gap-4">
+              <!-- 背包按鈕 -->
+              <button (click)="mobileAction('inventory')" class="w-10 h-10 rounded-full bg-gray-800/80 border border-gray-500 text-white flex items-center justify-center">
+                  🎒
+              </button>
+              
+              <!-- 暫停按鈕 -->
               <button (click)="mobileAction('pause')" class="w-10 h-10 rounded-full bg-gray-800/80 border border-gray-500 text-white flex items-center justify-center">
                   ||
               </button>
@@ -173,14 +194,31 @@
         }
       </div>
 
-      <!-- 物品欄 -->
-      <div class="absolute bottom-6 right-6 flex gap-2" [class.hidden]="isMobile()">
+      <!-- 物品欄 (桌面版右下，手機版頂部靠下) -->
+      <div class="absolute flex gap-2 pointer-events-auto transition-all z-40" 
+           [class.bottom-6]="!isMobile()" [class.right-6]="!isMobile()"
+           [class.top-36]="isMobile()" [class.left-1/2]="isMobile()" [class.-translate-x-1/2]="isMobile()">
           @for (item of inventory(); track $index) {
-              <div class="w-12 h-12 bg-gray-900 border border-gray-600 flex items-center justify-center text-xs shadow-lg"
-                   [title]="item">
+              <div class="w-12 h-12 bg-gray-900 border border-gray-600 flex items-center justify-center text-xs shadow-lg cursor-pointer hover:bg-gray-700 active:scale-95"
+                   [title]="item" (click)="useInventoryItem(item)">
                   @switch (item) {
                       @case ('KEY') { 🔑 }
                       @case ('BATTERY') { 🔋 }
+                      @case ('BANDAGE') { 🩹 }
+                      @case ('PILLS') { 💊 }
+                      @case ('ALCOHOL') { 🍶 }
+                      @case ('CLOTH') { 🧣 }
+                      @case ('HERB') { 🌿 }
+                      @case ('WATER') { 💧 }
+                      @case ('MOLOTOV') { 🔥 }
+                      @case ('HERBAL_MEDKIT') { 📦 }
+                      @case ('ADRENALINE') { 💉 }
+                      @case ('METAL') { 🔩 }
+                      @case ('TAPE') { 🎞️ }
+                      @case ('WIRE') { 🔌 }
+                      @case ('EMP') { ⚡ }
+                      @case ('STIM') { 🧪 }
+                      @case ('ARMOR') { 🛡️ }
                       @default { ? }
                   }
               </div>
@@ -195,8 +233,8 @@
       
       <!-- 獨白字幕 -->
       @if (currentMonologue()) {
-        <div class="absolute w-full text-center" [class.bottom-40]="!isMobile()" [class.top-20]="isMobile()">
-            <span class="bg-black/90 text-gray-300 italic px-8 py-3 text-lg border-y border-red-900 shadow-lg block max-w-sm mx-auto">
+        <div class="absolute w-full text-center" [class.bottom-40]="!isMobile()" [class.top-1/2]="isMobile()">
+            <span class="bg-black/90 text-gray-300 italic px-8 py-3 text-lg border-y border-red-900 shadow-lg block max-w-sm mx-auto backdrop-blur-sm">
                 " {{ currentMonologue() }} "
             </span>
         </div>
@@ -296,11 +334,12 @@
           @if (isMobile()) {
               <p>左側搖桿: 移動 | 右側滑動: 視角</p>
               <p>右下按鈕: 互動 / 手電筒 / 蹲下 / 奔跑</p>
+              <p>上方按鈕: 🎒 背包 / || 暫停</p>
           } @else {
               <p>按 [WASD] 移動, [SHIFT] 奔跑</p>
               <p>按 [E] 互動 (開門、躲藏、解謎)</p>
               <p>按 [F] 手電筒, [C] 蹲下</p>
-              <p>按 [ESC] 暫停遊戲</p>
+              <p>按 [ESC] 暫停, [TAB/I] 開啟背包</p>
           }
           <p class="text-red-900">警告：含有強烈閃光與驚嚇畫面</p>
       </div>
@@ -309,24 +348,142 @@
     </div>
   }
 
-  <!-- 暫停選單 -->
+  <!-- 暫停 / 系統選單 (新增分頁功能) -->
   @if (gameState() === 'PAUSED') {
-    <div class="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center font-mono">
-      <h1 class="text-5xl font-bold text-white mb-8 tracking-widest border-b-2 border-white pb-2">已暫停</h1>
+    <div class="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center font-mono">
+      <h1 class="text-4xl font-bold text-white mb-6 tracking-widest">SYSTEM_MENU</h1>
       
-      <div class="flex flex-col gap-4 w-64">
-        <button (click)="togglePause()" class="border border-white py-3 hover:bg-white hover:text-black transition-colors">
-          繼續遊戲
-        </button>
-        <button (click)="reload()" class="border border-red-800 text-red-500 py-3 hover:bg-red-900 hover:text-white transition-colors">
-          重新開始
-        </button>
+      <!-- Tabs -->
+      <div class="flex border-b border-gray-700 mb-6 w-full max-w-md justify-center">
+          <button (click)="activePauseTab.set('STATUS')" 
+                  [class.border-b-2]="activePauseTab() === 'STATUS'" 
+                  [class.border-red-500]="activePauseTab() === 'STATUS'"
+                  class="px-4 py-2 text-gray-400 hover:text-white text-sm">狀態</button>
+          <button (click)="activePauseTab.set('INVENTORY')" 
+                  [class.border-b-2]="activePauseTab() === 'INVENTORY'"
+                  [class.border-red-500]="activePauseTab() === 'INVENTORY'"
+                  class="px-4 py-2 text-gray-400 hover:text-white text-sm">物品</button>
+          <button (click)="activePauseTab.set('CRAFT')" 
+                  [class.border-b-2]="activePauseTab() === 'CRAFT'"
+                  [class.border-red-500]="activePauseTab() === 'CRAFT'"
+                  class="px-4 py-2 text-gray-400 hover:text-white text-sm">合成</button>
+          <button (click)="activePauseTab.set('ACHIEVEMENT')" 
+                  [class.border-b-2]="activePauseTab() === 'ACHIEVEMENT'"
+                  [class.border-red-500]="activePauseTab() === 'ACHIEVEMENT'"
+                  class="px-4 py-2 text-gray-400 hover:text-white text-sm">成就</button>
       </div>
-      
-      <div class="mt-12 text-gray-500 text-xs text-center border-t border-gray-800 pt-4 w-64">
-        <p>當前樓層: B{{ floor() }}</p>
-        <p>已解謎題: {{ puzzlesSolved() }}/10</p>
-        <p class="mt-2 text-red-900">不要在黑暗中停留太久...</p>
+
+      <!-- Tab Content -->
+      <div class="w-full max-w-md h-96 overflow-y-auto mb-6 p-4 border border-gray-800 bg-gray-900/50">
+          
+          <!-- 狀態分頁 -->
+          @if (activePauseTab() === 'STATUS') {
+             <div class="flex flex-col gap-4">
+                <button (click)="togglePause()" class="border border-white py-3 hover:bg-white hover:text-black transition-colors w-full">
+                  繼續遊戲
+                </button>
+                <div class="text-gray-500 text-xs text-center pt-4">
+                    <p>當前樓層: B{{ floor() }}</p>
+                    <p>已解謎題: {{ puzzlesSolved() }}/10</p>
+                    <p class="mt-2 text-red-900">不要在黑暗中停留太久...</p>
+                </div>
+                 <button (click)="reload()" class="border border-red-800 text-red-500 py-3 hover:bg-red-900 hover:text-white transition-colors w-full mt-8">
+                  重新開始
+                </button>
+             </div>
+          }
+
+          <!-- 物品分頁 (New) -->
+          @if (activePauseTab() === 'INVENTORY') {
+              <div class="space-y-3">
+                  @if (inventory().length === 0) {
+                      <div class="text-gray-500 text-center py-10">背包是空的...</div>
+                  }
+                  @for (item of inventory(); track $index) {
+                      <div class="flex items-start gap-4 p-3 border border-gray-700 bg-black/40">
+                          <div class="text-3xl bg-gray-800 w-12 h-12 flex items-center justify-center border border-gray-600">
+                             @switch (item) {
+                                  @case ('KEY') { 🔑 }
+                                  @case ('BATTERY') { 🔋 }
+                                  @case ('BANDAGE') { 🩹 }
+                                  @case ('PILLS') { 💊 }
+                                  @case ('ALCOHOL') { 🍶 }
+                                  @case ('CLOTH') { 🧣 }
+                                  @case ('HERB') { 🌿 }
+                                  @case ('WATER') { 💧 }
+                                  @case ('MOLOTOV') { 🔥 }
+                                  @case ('HERBAL_MEDKIT') { 📦 }
+                                  @case ('ADRENALINE') { 💉 }
+                                  @case ('METAL') { 🔩 }
+                                  @case ('TAPE') { 🎞️ }
+                                  @case ('WIRE') { 🔌 }
+                                  @case ('EMP') { ⚡ }
+                                  @case ('STIM') { 🧪 }
+                                  @case ('ARMOR') { 🛡️ }
+                                  @default { ? }
+                             }
+                          </div>
+                          <div class="flex-1">
+                              <div class="font-bold text-gray-300">{{ item }}</div>
+                              <div class="text-xs text-gray-500 mb-2">{{ itemDescriptions[item] || '未知物品' }}</div>
+                              <button (click)="useInventoryItem(item)" class="text-xs bg-gray-800 px-3 py-1 border border-gray-600 hover:bg-green-900 hover:border-green-500 text-gray-300">
+                                  使用
+                              </button>
+                          </div>
+                      </div>
+                  }
+              </div>
+          }
+
+          <!-- 合成分頁 -->
+          @if (activePauseTab() === 'CRAFT') {
+              <div class="space-y-4">
+                  @for (recipe of craftingRecipes; track recipe.id) {
+                      <div class="border border-gray-700 p-3 bg-black/50">
+                          <div class="flex justify-between items-center mb-2">
+                              <span class="font-bold text-yellow-500">{{ recipe.name }}</span>
+                              <button (click)="craftItem(recipe)" class="text-xs bg-gray-800 px-3 py-1 border border-gray-600 hover:bg-green-900 hover:border-green-500">
+                                  合成
+                              </button>
+                          </div>
+                          <div class="text-xs text-gray-400 mb-2">{{ recipe.desc }}</div>
+                          <div class="flex gap-2 text-xs">
+                              需: 
+                              @for (ing of recipe.ingredients; track $index) {
+                                  <span [class.text-green-500]="inventory().includes(ing)" [class.text-red-500]="!inventory().includes(ing)">
+                                      {{ ing }}
+                                  </span>
+                              }
+                          </div>
+                      </div>
+                  }
+                  <div class="text-xs text-gray-500 text-center mt-4">尋找走廊地上的材料...</div>
+              </div>
+          }
+
+          <!-- 成就分頁 -->
+          @if (activePauseTab() === 'ACHIEVEMENT') {
+              <div class="space-y-3">
+                  @for (ach of achievements(); track ach.id) {
+                      <div class="flex items-center gap-4 p-3 border" 
+                           [class.border-yellow-600]="ach.unlocked" 
+                           [class.bg-yellow-900/20]="ach.unlocked"
+                           [class.border-gray-800]="!ach.unlocked"
+                           [class.opacity-50]="!ach.unlocked">
+                          <div class="text-2xl">{{ ach.icon }}</div>
+                          <div>
+                              <div class="font-bold text-sm" [class.text-yellow-500]="ach.unlocked" [class.text-gray-500]="!ach.unlocked">
+                                  {{ ach.title }}
+                              </div>
+                              <div class="text-xs text-gray-400">{{ ach.desc }}</div>
+                          </div>
+                          @if (ach.unlocked) {
+                              <div class="ml-auto text-xs text-green-500">✓</div>
+                          }
+                      </div>
+                  }
+              </div>
+          }
       </div>
     </div>
   }
